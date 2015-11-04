@@ -1,0 +1,276 @@
+\usepackage{etoolbox}
+\usepackage{xparse}
+\usepackage{xcolor}
+\usepackage{pbox}
+%\usepackage{parbox}
+\usepackage{ifthen}
+
+\usepackage{tikz}
+\usetikzlibrary{matrix,backgrounds}
+\usepackage{pgfmath}
+
+\NewDocumentCommand{\fillhighlight}{O{blue!40} m m}{%
+\draw[draw,fill=#1] (#2.north west)rectangle (#3.south east);
+}
+
+%%%%%%%%%%% set color variables %%%%%%%%%%%
+
+\colorlet{newcolor1}{magenta!25}
+\colorlet{newcolor2}{yellow!25}
+\colorlet{newcolor3}{green!25}
+\colorlet{newcolor4}{blue!25}
+\newcommand{\ColorVariable}[1]{newcolor#1}
+
+%%%%%%% define centering automatic sizable box %%%%%%%
+\DeclareRobustCommand*\centbox[1]{%
+\pbox[c]{\linewidth}{\relax\ifvmode\centering\fi%
+#1}}
+
+%%%%%%% define centering automatic sizable box %%%%%%%
+\DeclareRobustCommand*\leftbox[1]{%
+\pbox[c]{\linewidth}{#1}%
+}
+
+%%%%%%%%%%% process gird (row major) %%%%%%%%%%%
+\NewDocumentCommand{\drawgridrowmajor}{}{%
+\begin{tikzpicture}[baseline=-\the\dimexpr\fontdimen22\textfont2\relax ]
+\matrix (gridrow)[ampersand replacement=\&, matrix of math nodes]
+{
+\centbox{(0,0)\\0} \& \centbox{(0,1)\\2} \\ 
+\centbox{(1,0)\\1} \& \centbox{(1,1)\\3} \\
+};
+\begin{pgfonlayer}{background}
+  \foreach \i [evaluate=\i] in {0,1} {
+    \foreach \j [evaluate=\j] in {0,1} {
+      \pgfmathtruncatemacro{\ind}{\i + 2*\j + 1}
+      \pgfmathtruncatemacro{\ip}{\i + 1}
+      \pgfmathtruncatemacro{\jp}{\j + 1}
+      \fillhighlightelement[\ColorVariable{\ind}]{gridrow-\ip-\jp}
+    }
+  }
+\end{pgfonlayer}
+\end{tikzpicture}
+}
+
+%%%%%%%%%%% process gird (col major) %%%%%%%%%%%
+\NewDocumentCommand{\drawgridcolmajor}{}{%
+\begin{tikzpicture}%[baseline=-\the\dimexpr\fontdimen22\textfont2\relax ]
+\matrix (gridcol)[ampersand replacement=\&, matrix of math nodes]
+{
+\centbox{(0,0)\\0} \& \centbox{(0,1)\\1} \\ 
+\centbox{(1,0)\\2} \& \centbox{(1,1)\\3} \\
+};
+\begin{pgfonlayer}{background}
+ \foreach \i [evaluate=\i] in {0,1} {
+   \foreach \j [evaluate=\j] in {0,1} {
+     \pgfmathtruncatemacro{\ind}{2*\i + \j + 1}
+     \pgfmathtruncatemacro{\ip}{\i + 1}
+     \pgfmathtruncatemacro{\jp}{\j + 1}
+     \fillhighlightelement[\ColorVariable{\ind}]{gridcol-\ip-\jp}
+   }
+ }
+\end{pgfonlayer}
+\end{tikzpicture}
+}
+
+%%%%%%%%%%% block-cyclic matrix (global view) %%%%%%%%%%%
+
+% mglobal, block, nprow, npcol, myrow, mycol
+\NewDocumentCommand{\drawblock}{m m m m m m m m}{%
+\def\mat{#1}
+\pgfmathsetmacro{\mglobal}{#2}
+\pgfmathsetmacro{\nglobal}{#3}
+\pgfmathsetmacro{\block}{#4}
+\pgfmathsetmacro{\nprow}{#5}
+\pgfmathsetmacro{\npcol}{#6}
+\pgfmathsetmacro{\myrow}{#7}
+\pgfmathsetmacro{\mycol}{#8}
+
+\pgfmathtruncatemacro{\mstart}{\myrow * \block + 1}
+\pgfmathtruncatemacro{\mskip}{\mstart + \nprow * \block}
+\pgfmathtruncatemacro{\nstart}{\mycol * \block + 1}
+\pgfmathtruncatemacro{\nskip}{\nstart + \npcol * \block}
+\pgfmathtruncatemacro{\colorno}{\nprow * \myrow + \mycol + 1}
+
+\foreach \i [evaluate=\i] in {\mstart,\mskip,...,\mglobal} {
+\foreach \j [evaluate=\j] in {\nstart,\nskip,...,\nglobal} {
+\pgfmathtruncatemacro{\ni}{\i + \block - 1}
+\pgfmathtruncatemacro{\nj}{\j + \block - 1}
+\fillhighlight[\ColorVariable{\colorno}]{\mat-\i-\j}{\mat-\ni-\nj}
+} }
+}
+
+\DeclareRobustCommand*\blockcyclicglobal[2]{%
+\pgfmathsetmacro{\mglobal}{#1}
+\pgfmathsetmacro{\nglobal}{#2}
+\pgfmathsetmacro{\mglobalm}{\mglobal - 1}
+\pgfmathsetmacro{\nglobalm}{\nglobal - 1}
+% generate matrix data
+\let\blockcyclicglobalcontent\empty
+\foreach \i in {0,...,\mglobalm} {%
+  \foreach \j in {0,...,\nglobalm} {%
+    \pgfmathtruncatemacro{\elem}{\i + \j * \mglobal}
+    \begingroup\edef\x{\endgroup
+      \noexpand\gappto\noexpand\blockcyclicglobalcontent{\expandonce\parbox[c]{1em}{\expandonce\centering\elem} \&}}\x
+  }%
+  \gappto\blockcyclicglobalcontent{\\}%
+}%
+\matrix (blockcyclicglobalmatrix)[ampersand replacement=\&,matrix of math nodes,left delimiter={[},right delimiter={]}]
+{
+  \blockcyclicglobalcontent
+};
+}
+
+% commnd for users
+\NewDocumentCommand{\drawblockcyclicglobal}{}{%
+\begin{tikzpicture}[baseline=-\the\dimexpr\fontdimen22\textfont2\relax]
+\blockcyclicglobal{8}{8}
+\begin{pgfonlayer}{background}
+\drawblock{blockcyclicglobalmatrix}{8}{8}{2}{2}{2}{0}{0}
+\drawblock{blockcyclicglobalmatrix}{8}{8}{2}{2}{2}{0}{1}
+\drawblock{blockcyclicglobalmatrix}{8}{8}{2}{2}{2}{1}{0}
+\drawblock{blockcyclicglobalmatrix}{8}{8}{2}{2}{2}{1}{1}
+\end{pgfonlayer}
+\end{tikzpicture}
+}
+
+%%%%%%%%%%% block-cyclic matrix (local view, array) %%%%%%%%%%%
+\DeclareRobustCommand*\localarray[7]{%
+\let\mymatrixcontent\empty
+\pgfmathsetmacro{\mglobal}{#1}
+\pgfmathsetmacro{\nglobal}{#2}
+\pgfmathsetmacro{\mglobalm}{\mglobal - 1}
+\pgfmathsetmacro{\nglobalm}{\nglobal - 1}
+\pgfmathsetmacro{\block}{#3}
+\pgfmathsetmacro{\nprow}{#4}
+\pgfmathsetmacro{\npcol}{#5}
+\pgfmathsetmacro{\myrow}{#6}
+\pgfmathsetmacro{\mycol}{#7}
+% calculate row size
+\pgfmathsetmacro{\tmp}{\mglobal / \block}
+\pgfmathsetmacro{\localnumblockrows}{(\tmp - \myrow -1) / \nprow + 1}
+\pgfmathsetmacro{\restblockrow}{mod(\tmp,\nprow)}
+\ifthenelse{\equal{\restblockrow}{\myrow}}{\pgfmathsetmacro{\restsize}{mod(\mglobal,\block)}}{\pgfmathsetmacro{\restsize}{0}}
+\pgfmathsetmacro{\rowsize}{\localnumblockrows * \block + \restsize}
+\pgfmathsetmacro{\rowsizem}{\rowsize - 1}
+% calculate col size
+\pgfmathsetmacro{\tmp}{\nglobal / \block}
+\pgfmathsetmacro{\localnumblockcols}{(\tmp - \mycol -1) / \npcol + 1}
+\pgfmathsetmacro{\restblockcol}{mod(\tmp,\npcol)}
+\ifthenelse{\equal{\restblockcol}{\mycol}}{\pgfmathsetmacro{\restsize}{mod(\nglobal,\block)}}{\pgfmathsetmacro{\restsize}{0}}
+\pgfmathsetmacro{\colsize}{\localnumblockcols * \block + \restsize}
+\pgfmathsetmacro{\colsizem}{\colsize - 1}
+% generate matrix data
+\foreach \i in {0,...,\mglobalm} {%
+  \pgfmathtruncatemacro{\numblocki}{\i / \block}
+  \pgfmathtruncatemacro{\rowi}{mod(\numblocki,\nprow)}
+  \ifthenelse{\equal{\rowi}{\myrow}}{
+    \foreach \j in {0,...,\nglobalm} {%
+      \pgfmathtruncatemacro{\numblockj}{\j / \block}
+      \pgfmathtruncatemacro{\colj}{mod(\numblockj,\npcol)}
+      \ifthenelse{\equal{\colj}{\mycol}}{
+        \pgfmathtruncatemacro{\elem}{\i + \j * \mglobal}
+        \begingroup\edef\x{\endgroup
+          \noexpand\gappto\noexpand\mymatrixcontent{\expandonce\parbox[c]{1em}{\expandonce\centering\elem} \&}}\x
+      }{}
+    }%
+    \gappto\mymatrixcontent{\\}%
+  }{}
+}
+% draw matrix
+\matrix (m) [ampersand replacement=\&,matrix of math nodes]
+{
+  \mymatrixcontent
+};
+% paint matrix
+\begin{pgfonlayer}{background}
+\pgfmathtruncatemacro{\skip}{\block + 1}
+\pgfmathtruncatemacro{\colorno}{\nprow * \myrow + \mycol + 1}
+
+\foreach \i [evaluate=\i] in {1,\skip,...,\rowsizem} {
+  \foreach \j [evaluate=\j] in {1,\skip,...,\colsizem} {
+    \pgfmathtruncatemacro{\ni}{\i + \block - 1}
+    \pgfmathtruncatemacro{\nj}{\j + \block - 1}
+    \fillhighlight[\ColorVariable{\colorno}]{m-\i-\j}{m-\ni-\nj}
+  }
+}
+\end{pgfonlayer}
+}
+
+\DeclareRobustCommand*\minipagematrix[1]{%
+\begin{minipage}{\widthof{\tikz #1;}}%
+\begin{tikzpicture}
+#1
+\end{tikzpicture}
+\end{minipage}%
+}
+
+% commnd for users
+\NewDocumentCommand{\drawblockcycliclocal}{}{%
+\begin{tabular}{ll}
+\centbox{process $0$\\(0,0)}&\minipagematrix{\localarray{8}{8}{2}{2}{2}{0}{0}}\\
+\centbox{process $1$\\(0,1)}&\minipagematrix{\localarray{8}{8}{2}{2}{2}{0}{1}}\\
+\centbox{process $2$\\(1,0)}&\minipagematrix{\localarray{8}{8}{2}{2}{2}{1}{0}}\\
+\centbox{process $3$\\(1,1)}&\minipagematrix{\localarray{8}{8}{2}{2}{2}{1}{1}}\\
+\end{tabular}
+}
+
+%%%%%%%%%%% localized matrix (row-major)  %%%%%%%%%%%
+\NewDocumentCommand{\localizedmatrixrowmajor}{m m}{%
+\pgfmathsetmacro{\mglobal}{#1}%
+\pgfmathsetmacro{\nglobal}{#2}%
+\pgfmathsetmacro{\mglobalm}{\mglobal - 1}%
+\pgfmathsetmacro{\nglobalm}{\nglobal - 1}%
+% generate matrix data
+\let\localizedmatrixcontent\empty%
+\foreach \i in {0,...,\mglobalm} {%
+  \foreach \j in {0,...,\nglobalm} {%
+    \pgfmathtruncatemacro{\elem}{\i * \nglobal + \j}%
+    \begingroup\edef\x{\endgroup%
+      \noexpand\gappto\noexpand\localizedmatrixcontent{\expandonce\parbox[c]{1em}{\expandonce\centering\elem} \&}}\x
+  }%
+  \gappto\localizedmatrixcontent{\\}%
+}%
+\begin{tikzpicture}[baseline=-\the\dimexpr\fontdimen22\textfont2\relax]%
+\matrix (m)[ampersand replacement=\&,matrix of math nodes,left delimiter={[},right delimiter={]}]%
+{%
+  \localizedmatrixcontent%
+};%
+\foreach \i in {1,...,\mglobalm} {%
+  \draw[blue,->] (m-\i-1.west) -- (m-\i-\nglobal.east);%
+  \pgfmathtruncatemacro{\ni}{\i + 1}%
+  \draw[blue] (m-\i-\nglobal.east) -- (m-\ni-1.west);%
+}%
+\draw[blue,->] (m-\mglobal-1.west) -- (m-\mglobal-\nglobal.east);%
+\end{tikzpicture}%
+}
+
+%%%%%%%%%%% localized matrix (col-major)  %%%%%%%%%%%
+\NewDocumentCommand{\localizedmatrixcolmajor}{m m}{%
+\pgfmathsetmacro{\mglobal}{#1}%
+\pgfmathsetmacro{\nglobal}{#2}%
+\pgfmathsetmacro{\mglobalm}{\mglobal - 1}%
+\pgfmathsetmacro{\nglobalm}{\nglobal - 1}%
+% generate matrix data
+\let\localizedmatrixcontent\empty%
+\foreach \i in {0,...,\mglobalm} {%
+  \foreach \j in {0,...,\nglobalm} {%
+    \pgfmathtruncatemacro{\elem}{\i + \j * \mglobal}%
+    \begingroup\edef\x{\endgroup%
+      \noexpand\gappto\noexpand\localizedmatrixcontent{\expandonce\parbox[c]{1em}{\expandonce\centering\elem} \&}}\x
+  }%
+  \gappto\localizedmatrixcontent{\\}%
+}%
+\begin{tikzpicture}[baseline=-\the\dimexpr\fontdimen22\textfont2\relax]%
+\matrix (m)[ampersand replacement=\&,matrix of math nodes,left delimiter={[},right delimiter={]}]%
+{%
+  \localizedmatrixcontent%
+};%
+\foreach \j in {1,...,\nglobalm} {%
+  \draw[blue,->] (m-1-\j.north) -- (m-\mglobal-\j.south);%
+  \pgfmathtruncatemacro{\nj}{\j + 1}%
+  \draw[blue] (m-\mglobal-\j.south) -- (m-1-\nj.north);%
+}%
+\draw[blue,->] (m-1-\nglobal.north) -- (m-\mglobal-\nglobal.south);%
+\end{tikzpicture}%
+}

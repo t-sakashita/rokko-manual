@@ -1,0 +1,184 @@
+\usepackage{etoolbox}
+\usepackage{xparse}
+\usepackage{xcolor}
+\usepackage{pbox}
+\usepackage{ifthen}
+
+\usepackage{tikz}
+\usetikzlibrary{calc,matrix,backgrounds,decorations.markings,decorations.pathreplacing}
+\usepackage{pgfmath}
+
+%%%%%%%%%%% set color variables %%%%%%%%%%%
+% \colorlet{newcolor1}{magenta!25}
+% \colorlet{newcolor2}{yellow!25}
+% \colorlet{newcolor3}{green!25}
+% \colorlet{newcolor4}{blue!25}
+% \newcommand{\ColorVariable}[1]{newcolor#1}
+
+% \NewDocumentCommand{\fillhighlight}{O{blue!40} m m}{%
+% \draw[draw,fill=#1] (#2.north west)rectangle (#3.south east);
+% }
+
+\DeclareRobustCommand*\drawvector[2]{%
+\pgfmathsetmacro{\mglobal}{#2}%
+\pgfmathsetmacro{\mglobalm}{\mglobal - 1}%
+% generate matrix data
+\let\vectorcontent\empty%
+\foreach \i in {0,...,\mglobalm} {%
+  \begingroup\edef\x{\endgroup%
+    \noexpand\gappto\noexpand\vectorcontent{ #1_{\i} \&}}\x%
+  \gappto\vectorcontent{\\}%
+}%
+\matrix (vector)[ampersand replacement=\&,matrix of math nodes,left delimiter={[},right delimiter={]}]
+{
+  \vectorcontent
+};
+}
+
+\DeclareRobustCommand*\drawblockvector[4]{%
+\drawvector{#1}{#2}
+\pgfmathsetmacro{\block}{#3}
+\pgfmathsetmacro{\nproc}{#4}
+\pgfmathsetmacro{\nprocm}{\nproc - 1}
+\begin{pgfonlayer}{background}
+\foreach \myrow in {0,...,\nprocm} {%
+  \drawcrsblock{vector}{#2}{1}{#3}{\myrow}
+}%
+\end{pgfonlayer}
+}
+
+\DeclareRobustCommand*\fixedbox[1]{%
+\parbox[c]{1.3em}{\relax\ifvmode\centering\fi%
+#1}}
+
+\DeclareRobustCommand*\drawcrs[2]{%
+\pgfmathsetmacro{\mglobal}{#1}
+\pgfmathsetmacro{\nglobal}{#2}
+\pgfmathsetmacro{\mglobalm}{\mglobal - 1}
+\pgfmathsetmacro{\nglobalm}{\nglobal - 1}
+% generate matrix data
+\let\crscontent\empty%
+\foreach \i in {0,...,\mglobalm} {%
+  \foreach \j in {0,...,\nglobalm} {%
+    \pgfmathtruncatemacro{\elem}{\i + \j * \mglobal}%
+    \begingroup\edef\x{\endgroup%
+      \noexpand\gappto\noexpand\crscontent{ \elem \&}}\x%
+  }%
+  \gappto\crscontent{\\}%
+}%
+\matrix (crs)[ampersand replacement=\&, matrix of math nodes,left delimiter={[},right delimiter={]}]
+{
+\fixedbox{7.1} \& \fixedbox{5.2} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0}\\
+\fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{6.4} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0}\\
+\fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{4.3} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0}\\
+\fixedbox{0} \& \fixedbox{0.4} \& \fixedbox{0.5} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0}\\
+\fixedbox{0.1} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0}\\
+\fixedbox{0} \& \fixedbox{0} \& \fixedbox{0.5} \& \fixedbox{0} \& \fixedbox{0.2} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0}\\
+\fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{1.4} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0}\\
+\fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{2.3} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0} \& \fixedbox{0}\\
+};
+}
+
+\NewDocumentCommand{\drawcrsblock}{m m m m m}{%
+\def\mat{#1}%
+\pgfmathsetmacro{\mglobal}{#2}%
+\pgfmathsetmacro{\nglobal}{#3}%
+\pgfmathsetmacro{\block}{#4}%
+\pgfmathsetmacro{\myrow}{#5}%
+\pgfmathtruncatemacro{\mstart}{\myrow * \block + 1}%
+\pgfmathtruncatemacro{\mend}{\mstart + \block - 1}%
+\pgfmathtruncatemacro{\colorno}{\myrow + 1}%
+\fillhighlight[\ColorVariable{\colorno}]{\mat-\mstart-1}{\mat-\mend-\nglobal}%
+}
+
+\NewDocumentCommand{\DrawSparseMatrixVectorProduct}{m m}{%
+\begin{tikzpicture}[baseline=-\the\dimexpr\fontdimen22\textfont2\relax]
+  \pgfmathsetmacro{\mglobal}{8}%
+  \pgfmathsetmacro{\nglobal}{8}%
+  \pgfmathsetmacro{\block}{#1}%
+  \pgfmathtruncatemacro{\nprow}{#2}%
+  \drawblockvector{y}{\mglobal}{\block}{\nprow}
+\end{tikzpicture}
+$=$
+\begin{tikzpicture}[baseline=-\the\dimexpr\fontdimen22\textfont2\relax]
+  \pgfmathsetmacro{\mglobal}{8}%
+  \pgfmathsetmacro{\nglobal}{8}%
+  \drawcrs{\mglobal}{\nglobal}
+  \pgfmathsetmacro{\block}{#1}%
+  \pgfmathtruncatemacro{\nprow}{#2}%
+  \pgfmathtruncatemacro{\nprowm}{\nprow - 1}%
+  \begin{pgfonlayer}{background}
+    \foreach \myrow in {0,...,\nprowm} {%
+      \drawcrsblock{crs}{8}{8}{2}{\myrow}
+      \FillDiagonalBlock{crs}{8}{8}{2}{\myrow}
+    }%
+  \end{pgfonlayer}
+\end{tikzpicture}
+\begin{tikzpicture}[baseline=-\the\dimexpr\fontdimen22\textfont2\relax]
+  \pgfmathsetmacro{\mglobal}{8}%
+  \pgfmathsetmacro{\nglobal}{8}%
+  \pgfmathsetmacro{\block}{#1}%
+  \pgfmathtruncatemacro{\nprow}{#2}%
+  \pgfmathtruncatemacro{\nprowm}{\nprow - 1}%
+  \drawblockvector{x}{\mglobal}{\block}{\nprow}
+  \coordinate (hoffset) at (0.4,0);
+  \foreach \myrow [evaluate=\myrow] in {0,...,\nprowm} {%
+    \pgfmathtruncatemacro{\i}{\myrow * \block + 1}
+    \pgfmathtruncatemacro{\ni}{\i + \block - 1}
+    \coordinate (A) at ($(vector-\i-1.north east)+(hoffset)$);
+    \coordinate (B) at ($(vector-\ni-1.south east)+(hoffset)$);
+    \draw[decorate, decoration={brace, amplitude=5pt}] (A) -- (B);
+    \node[right=4pt] at ($(A)!0.5!(B)$) {process \myrow};
+  }%
+\end{tikzpicture}
+}
+
+\NewDocumentCommand{\filldashedhighlight}{O{blue!40} m m}{%
+\draw[draw,fill=#1, dashed] (#2.north west)rectangle (#3.south east);
+}
+
+%%%%%%%%%%% set dark color variables %%%%%%%%%%%
+\colorlet{newdarkcolor1}{magenta!55}
+\colorlet{newdarkcolor2}{yellow!55}
+\colorlet{newdarkcolor3}{green!55}
+\colorlet{newdarkcolor4}{blue!55}
+\newcommand{\DarkColorVariable}[1]{newdarkcolor#1}
+
+\NewDocumentCommand{\FillDiagonalBlock}{m m m m m}{%
+\def\mat{#1}%
+\pgfmathsetmacro{\mglobal}{#2}%
+\pgfmathsetmacro{\nglobal}{#3}%
+\pgfmathsetmacro{\block}{#4}%
+\pgfmathsetmacro{\myproc}{#5}%
+\pgfmathtruncatemacro{\mstart}{\myproc * \block + 1}%
+\pgfmathtruncatemacro{\mend}{\mstart + \block - 1}%
+\pgfmathtruncatemacro{\colorno}{\myproc + 1}%
+\filldashedhighlight[\DarkColorVariable{\colorno}]{\mat-\mstart-\mstart}{\mat-\mend-\mend}%
+}
+
+\NewDocumentCommand{\DrawParallelCRS}{m m}{%
+\begin{tikzpicture}[baseline=-\the\dimexpr\fontdimen22\textfont2\relax]
+  \pgfmathsetmacro{\mglobal}{8}%
+  \pgfmathsetmacro{\nglobal}{8}%
+  \drawcrs{\mglobal}{\nglobal}%
+  \coordinate (hoffset) at (0.4,0);
+  \pgfmathtruncatemacro{\block}{#1}%
+  \pgfmathtruncatemacro{\skip}{\block + 1}%
+  \pgfmathtruncatemacro{\nprow}{#2}%
+  \pgfmathtruncatemacro{\nprowm}{\nprow - 1}%
+  \foreach \myrow [evaluate=\myrow] in {0,...,\nprowm} {%
+    \pgfmathtruncatemacro{\i}{\myrow * \block + 1}
+    \pgfmathtruncatemacro{\ni}{\i + \block - 1}
+    \coordinate (A) at ($(crs-\i-\nglobal.north east)+(hoffset)$);
+    \coordinate (B) at ($(crs-\ni-\nglobal.south east)+(hoffset)$);
+    \draw[decorate, decoration={brace, amplitude=5pt}] (A) -- (B);
+    \node[right=4pt] at ($(A)!0.5!(B)$) {process \myrow};
+  }%
+  % {\textsc{Support Activities}};
+\begin{pgfonlayer}{background}
+  \foreach \myrow in {0,...,\nprowm} {%
+  \drawcrsblock{crs}{\mglobal}{\nglobal}{\block}{\myrow}
+}%
+\end{pgfonlayer}
+\end{tikzpicture}
+}

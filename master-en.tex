@@ -1,0 +1,228 @@
+\documentclass[12pt]{article}
+
+\usepackage{graphicx}
+
+\usepackage{amssymb, amsmath}
+%\usepackage{amsthm}
+
+\usepackage{mathtools}
+
+\usepackage{xparse}
+%\usepackage{xcolor}
+
+\usepackage{subcaption}
+\usepackage[skip=0pt]{subcaption}
+\captionsetup{compatibility=false}
+\captionsetup{subrefformat=parens}
+%\captionsetup{skip=\dimexpr\abovecaptionskip-8pt}
+
+\usepackage{tikz}
+\usetikzlibrary{matrix,backgrounds}
+\usepackage{pgfmath}
+
+\usepackage{draw_dense_matrix}
+\usepackage{draw_sparse_matrix}
+%\usepackage{draw_dir_structure}
+
+\NewDocumentCommand{\fillhighlightelement}{O{blue!20} m}{%
+\draw[draw,fill=#1] (#2.north west)rectangle (#2.south east);}
+
+\usepackage{pbox, cellspace}
+\cellspacetoplimit = 6pt
+\cellspacebottomlimit = 6pt
+%\renewcommand{\arraystretch}{2}%  1 is the default, change whatever you need
+
+% package introduced by authors
+\usepackage{url}
+\usepackage{listings}
+%\usepackage{cleveref}
+%\usepackage[strings]{underscore}
+
+%\usepackage[english]{babel}
+%\usepackage{underscore}
+
+\newcommand{\smallscr}[1]{\scalebox{0.4}{$#1$}}
+\newcommand{\middlescr}[1]{\scalebox{0.55}{$#1$}}
+\newcommand\figref[1]{Fig.~\ref{#1}}
+\newcommand\figsref[1]{Figs.~\ref{#1}}
+\newcommand\subfigref[1]{Fig.~\subref{#1}}
+\newcommand\tabref[1]{Table~\ref{#1}}
+\newcommand\secref[1]{Section~\ref{#1}}
+\newcommand\itemref[1]{(\ref{#1})}
+
+% define thick horizontal line
+\newlength\savedwidth
+\newcommand\whline{%
+    \noalign{\xdef\origarrayrulewidth{\the\arrayrulewidth}%
+    \global\arrayrulewidth 3\arrayrulewidth}%
+    \hline%
+    \noalign{\global\arrayrulewidth\origarrayrulewidth}%
+}
+
+\lstdefinestyle{shstyle}{
+    language=bash,
+    basicstyle=\ttfamily,%\tiny,
+    frame=single,
+    breaklines=true,                % sets automatic line breaking
+    breakautoindent=false,
+    breakatwhitespace=false,        % sets if automatic breaks should only happen at whitespace
+    deletekeywords={local, test},  % exclude from reserved keyword lists which is hightlighted
+    linewidth=0.9\linewidth
+}
+
+\DeclareRobustCommand*\template[1]{%
+$\left< \text{#1}\right> $}
+
+\lstset{
+language=c++,
+basicstyle=\small\sffamily,
+%numbers=left,
+%numberstyle=\tiny,
+frame=single,
+columns=fullflexible,
+showstringspaces=false,
+linewidth=0.9\linewidth
+}
+
+
+\begin{document}
+
+\section{Review of matrix representations}\label{sec:matrix_rep}
+
+In this section, we review general concepts of matrix representation for dense and sparse eigensolvers.
+
+\subsection{Representations of dense matrix}
+
+\subsubsection{Serial dense matrix and vector}
+In general, we need matrix to store matrix to be eigen-decomposed and eigenvectors and vector to store calculated eigenvalues.
+
+In computer memory, both matrix and vector are realized by one dimensional array.
+%For C, it is just one dimensional array.
+There are two ways to assign matrix elements to one dimensional array as illustrated in \figref{fig:localizedmatrix}.
+In the \figref{fig:localizedmatrix}, the integer values in matrix element means array addresses and blue-colored arrows mean storage order.
+In \figref{fig:localizedmatrix}\subref{subfig:localizedmatrix-row-major}, row-major is the indexing way that the elements of each row have contiguous addresses.
+In \figref{fig:localizedmatrix}\subref{subfig:localizedmatrix-col-major}, another major, column-major is defined similarly.
+
+%We can do padding leading dimension.
+%If you dealing with top left sub-matrix, leading dimension is useful.
+
+\noindent\begin{minipage}{\linewidth}
+  \setcaptiontype{figure}
+  \centering
+  \subcaptionbox{row-major\label{subfig:localizedmatrix-row-major}}
+%  [0.4\linewidth]{\localizedmatrixrowmajor{4}{4}}
+  [\widthof{$\localizedmatrixrowmajor{4}{4}$}]{$\localizedmatrixrowmajor{4}{4}$}
+  \subcaptionbox{column-major\label{subfig:localizedmatrix-col-major}}
+%  [0.4\linewidth]{\localizedmatrixcolmajor{4}{4}}
+  [\widthof{$\localizedmatrixcolmajor{4}{4}$}]{$\localizedmatrixcolmajor{4}{4}$}
+\caption{Example of \texttt{localized\_matrix}}\label{fig:localizedmatrix}
+\end{minipage}
+
+\subsubsection{Parallel dense matrix and vector: Block-cyclic representation}
+\label{subsubsec:rep-block-cyclic}
+%All eigensolvers for dense matrices employ 2D block-cyclic distributed matrices.
+To distribute matrix in memory at MPI processes, we need to assign MPI processes in two dimension firstly.
+For default, Rokko creates 2D process gird as far nearly square as possible.
+Similarly to \texttt{localized\_matrix}, there are two major types for 2D process grid, row-major and column-major.
+All dense solvers support both grid majors.
+Let us show both major types of $2\times 2$ size 2D process grid by $4$ processes (no.\ $0,1,2,3$) in \figref{fig:2d-grid}.
+In this figure, MPI process number is distinguished by its color.
+It is noted that MPI process number and $x, y$-coordinates begins at $0$ for both Fortran and C++/C.
+
+\noindent\begin{minipage}{\linewidth}
+  \setcaptiontype{figure}
+  \centering
+  \subcaptionbox{row-major\label{subfig:grid-row-major}}
+  [\widthof{\drawgridrowmajor}]{\drawgridrowmajor}
+  \subcaptionbox{col-major\label{subfig:grid-col-major}}
+  [\widthof{\drawgridcolmajor}]{\drawgridcolmajor}
+\caption{Example of 2D grid for 4 processes}\label{fig:2d-grid}
+\end{minipage}
+
+%Next, by using 2D process grid, we define block-cyclic matrices.
+%According to given a 2D process grid, \emph{block-cyclic matrix} distributed to MPI processes is defined.
+\emph{Block-cyclic matrix} is a storage style distributed to given a 2D process grid as squared tiles. 
+Paving the whole matrix with the patterns of 2D process grids of given block size, you obtain block cyclic distribution.
+\figref{fig:block-cyclic-matrix}\subref{subfig:global-view} is an example of expressing the matrix in the \figref{fig:localizedmatrix}\subref{subfig:localizedmatrix-col-major} as a block-cyclic matrix,
+using 2D process grid shown in \figref{fig:2d-grid}\subref{subfig:grid-col-major}.
+
+Each tile is assigned to one of processes in 2D process grid.
+The colors of tiles indicate assigned MPI processes.
+The size of squared tile is called \emph{block size}.
+In \figref{fig:block-cyclic-matrix}, $2\times2$ block size is used.
+EigenExa and Elemental support only $1\times1$ block size for computational efficiency.
+ScaLAPACK and ELPA support arbitrary block sizes.
+
+
+
+\setcaptiontype{figure}
+\begin{minipage}[c]{.5\linewidth}
+\centering\drawblockcyclicglobal
+\subcaption{global view}\label{subfig:global-view}
+\end{minipage}%
+\begin{minipage}[c]{.5\linewidth}
+\centering\drawblockcycliclocal
+\subcaption{local view}\label{subfig:local-view}
+\end{minipage}
+\caption{Block-cyclic matrix}\label{fig:block-cyclic-matrix}
+
+
+
+\figref{fig:block-cyclic-matrix}\subref{subfig:global-view} is virtual global view of the block-cyclic matrix.
+By pulling out the same color tiles in \figref{fig:block-cyclic-matrix}\subref{subfig:global-view},
+we obtain an actual local storage for each MPI process shown in \figref{fig:block-cyclic-matrix}\subref{subfig:local-view}.
+For example, the part of process $0$ is obtained by pulling out the red-colored tiles.
+Similarly, the part of process $1$ is obtained by pulling out the yellow-colored tiles.
+
+It should be noted that 2D process grid and block-cyclic matrices are used not only for eigensolvers, but also dense linear algebra libraries such as linear equation solver, LU and QR decomposition in general.
+
+\subsection{Representations of sparse matrix}
+
+To give data of matrix to be eigen-decomposed to sparse solvers, there are two representations of sparse matrix.
+The first one is generating \emph{CRS (Compressed Row Storage)} and the second one is \emph{matrix-free method}.
+We describe these representations in the subsections below.
+
+\subsubsection{CRS (Compressed Row Storage)}
+
+CRS is a matrix representation to store only nonzero entries and their column indices for each row.
+CRS is easy, but need extra memory and time for storing.
+
+% The matrix for the matrix in Equation \eqref{eq:sparse-matrix} is represented as CRS representation below:
+% \begin{itemize}
+% \item \verb|nonzero_rows = [2, 1, 1, 2, 1, 2, 1, 1]|
+% \item \verb|nonzero_cols = [0, 1, 3, 3, 1, 2, 0, 2, 4, 4, 3]|
+% \item \verb|nonzero_entries = [7.1, 5.2, 6.4, 4.3, 0.4, 0.5, 0.1, 0.5, 0.2, 1.4, 2,3]|
+% \end{itemize}
+In MPI parallelization for CRS, chunk of rows are assigned for each process.
+\figref{fig:parallel-crs} shows example of parallelization for the sparse matrix in Equation \eqref{eq:sparse-matrix}.
+\begin{figure}[!htbp]
+\DrawParallelCRS{2}{4}
+\centering\caption{Parallelization of CRS matrix}\label{fig:parallel-crs}
+\end{figure}
+
+
+\subsubsection{Matrix-free method}
+\emph{Matrix-free method} is to implement matrix-product routine and give it to solvers.
+This method does not need extra memory to construct a matrix explicitly to be eigen-decomposed, which has possibility for efficient calculation.
+%A user need to write matrix-vector product routine.
+If simple formula to generate sparse matrix is known, matrix-free method may have an advantage in performance than CRS method.
+%However, parallelizing your own matrix-vector product routine may be hard task.
+%Each process has matrix elements shown by dark colors surrounded by dashed lines in \figref{fig:parallel-matrix-vector-product}.
+
+\subsubsection{Parallelization for product of sparse matrix and dense vector}
+For both CRS and matrix-free method, matrix-vector product is executed at each iteration in sparse eigensolvers.
+
+In MPI parallelization, each process has a chunk of rows of CRS, a chunk both of input vector $\texttt{x}$ and output vector $\texttt{y}$ as shown in \figref{fig:parallel-matrix-vector-product}.
+In order to calculate each element of output vector $\texttt{y}$ of matrix-vector product, the chunks of \texttt{x} possessed by the other processes are required.
+To send and receive these chunks, MPI communication is used.
+
+For CRS, this communication is automatically performed by eigensolver libraries and thereby a user does not have to care about in parallelization of this product.
+%It has to send and receive the other matrix elements.
+For matrix-free method, he needs to write this communication explicitly.
+
+\begin{figure}[!htbp]
+\DrawSparseMatrixVectorProduct{2}{4}
+\centering\caption{Parallelization of matrix-vector product}\label{fig:parallel-matrix-vector-product}
+\end{figure}
+
+\end{document}
